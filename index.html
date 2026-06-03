@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Mirror of Emotion</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&family=Jomolhari&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #fff;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Page grid: mirror col | text col ───────────────────────── */
+    #scale-root {
+      display: grid;
+      grid-template-columns: 907px 1fr;
+      grid-template-areas: "mirror text";
+      align-items: center;
+      width: 1512px;
+      height: 982px;
+      transform-origin: center center;
+      flex-shrink: 0;
+    }
+
+    /* ── Mirror column ──────────────────────────────────────────── */
+    #mirror-col {
+      grid-area: mirror;
+      display: flex;
+      align-items: center;
+      padding-left: 91px;
+    }
+
+    /* mirror-wrap uses position:relative so its children can overlap */
+    #mirror-wrap {
+      position: relative;
+      width: 816px;
+      height: 816px;
+      flex-shrink: 0;
+    }
+
+    /* Oval video viewport — clipped to ellipse */
+    #oval-clip {
+      position: absolute;
+      left: 171px; top: 130px;
+      width: 475px; height: 567px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #f5f0e8;
+    }
+
+    #video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1);
+      filter: sepia(0.55) saturate(1.8) hue-rotate(5deg) brightness(1.05);
+    }
+
+    #brow-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    #face-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    .face-emoji {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: grayscale(1);
+      line-height: 1;
+    }
+
+    .face-label {
+      position: absolute;
+      color: #fff;
+      font-size: 11px;
+      background: rgba(0,0,0,0.6);
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* Gold ornate frame — overlaid on top of the oval */
+    #frame-img {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* START button — centred inside the mirror */
+    #start-btn {
+      position: absolute;
+      left: 308px; top: 400px;
+      width: 202px; height: 46px;
+      background: linear-gradient(to bottom, #e7c782, #b29045);
+      box-shadow: 0 4px 4px rgba(0,0,0,0.25);
+      color: #fff;
+      border: none;
+      border-radius: 23px;
+      font-family: 'Jost', sans-serif;
+      font-weight: 500;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    #start-btn:hover  { opacity: 0.85; }
+    #start-btn:active { opacity: 0.7;  }
+
+    /* ── Text column ────────────────────────────────────────────── */
+    #text-panel {
+      grid-area: text;
+      display: grid;
+      grid-template-rows: auto auto auto;
+      align-content: center;
+      row-gap: 0;
+    }
+
+    #title {
+      font-family: 'Jost', sans-serif;
+      font-weight: 400;
+      font-size: 64px;
+      line-height: 64px;
+      color: #e7c782;
+      text-transform: uppercase;
+      margin-bottom: 17px;
+    }
+
+    #subtitle {
+      font-family: 'Jomolhari', serif;
+      font-size: 32px;
+      color: #000;
+      margin-bottom: 36px;
+    }
+
+    #description {
+      font-family: 'Jomolhari', serif;
+      font-size: 22px;
+      line-height: 31px;
+      color: #443424;
+      width: 438px;
+    }
+  </style>
+</head>
+<body>
+  <div id="scale-root">
+
+    <!-- ── Mirror column ── -->
+    <div id="mirror-col">
+      <div id="mirror-wrap">
+
+        <!-- Oval camera viewport (frame + button overlay on top) -->
+        <div id="oval-clip">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="brow-canvas"></canvas>
+          <div id="face-layer"></div>
+        </div>
+
+        <!-- Ornate gold frame -->
+        <img id="frame-img"
+          src="https://www.figma.com/api/mcp/asset/74714134-6e97-4e74-9117-f6dff202a882"
+          alt="mirror frame">
+
+        <!-- Start button -->
+        <button id="start-btn">START</button>
+
+      </div>
+    </div>
+
+    <!-- ── Text column ── -->
+    <div id="text-panel">
+      <div id="title">THE MIRROR<br>OF EMOTION</div>
+      <div id="subtitle">When emotions are confusing</div>
+      <p id="description">Do you have a hard time reading peoples emotions? You are not alone. Train yourself to connect real facial expressions with your beloved emoji.</p>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Scale to viewport ──────────────────────────────────────────
+    const scaleRoot = document.getElementById('scale-root');
+    function fit() {
+      const s = Math.min(window.innerWidth / 1512, window.innerHeight / 982);
+      scaleRoot.style.transform = `scale(${s})`;
+    }
+    fit();
+    window.addEventListener('resize', fit);
+
+    // ── Elements ───────────────────────────────────────────────────
+    const startBtn   = document.getElementById('start-btn');
+    const video      = document.getElementById('video');
+    const browCanvas = document.getElementById('brow-canvas');
+    const faceLayer  = document.getElementById('face-layer');
+    const ovalClip   = document.getElementById('oval-clip');
+
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+    let detecting   = false;
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function avgPoint(pts) {
+      return {
+        x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+        y: pts.reduce((s, p) => s + p.y, 0) / pts.length
+      };
+    }
+
+    function getBrowRaise(landmarks, faceHeight) {
+      const pos   = landmarks.positions;
+      const lBrow = avgPoint(pos.slice(17, 22));
+      const rBrow = avgPoint(pos.slice(22, 27));
+      const lEye  = avgPoint(pos.slice(36, 42));
+      const rEye  = avgPoint(pos.slice(42, 48));
+      return ((lEye.y - lBrow.y) + (rEye.y - rBrow.y)) / 2 / faceHeight;
+    }
+
+    function normBrow(r) {
+      return Math.min(Math.max((r - 0.10) / 0.18, 0), 1);
+    }
+
+    // ── Emoji: 5 levels × 20 % steps ──────────────────────────────
+    const EMOJI_MAP = {
+      happy:     ['😊','🙂','😄','😁','🥰'],
+      sad:       ['😕','☹️','😢','😭','😭'],
+      angry:     ['😤','😠','😡','🤬','🤬'],
+      disgusted: ['😑','🤢','🤮','🤮','🤮'],
+      surprised: ['😮','😮','😲','😲','🤯'],
+      fearful:   ['😨','😨','😰','😱','😱'],
+      neutral:   ['😐','😐','😐','😐','😐'],
+    };
+
+    function pickEmoji(expressions) {
+      const [expr, score] = Object.entries(expressions)
+        .sort((a, b) => b[1] - a[1])[0];
+      if (score < 0.20) return '😐';
+      const bucket = Math.min(Math.floor(score / 0.20), 4);
+      return (EMOJI_MAP[expr] ?? EMOJI_MAP.neutral)[bucket];
+    }
+
+    // ── Draw eyebrows ──────────────────────────────────────────────
+    function drawBrows(detections, sx, sy) {
+      browCanvas.width  = ovalClip.offsetWidth;
+      browCanvas.height = ovalClip.offsetHeight;
+      const ctx = browCanvas.getContext('2d');
+      ctx.clearRect(0, 0, browCanvas.width, browCanvas.height);
+
+      detections.forEach(det => {
+        if (!det.landmarks) return;
+        const raise = getBrowRaise(det.landmarks, det.detection.box.height);
+        const norm  = normBrow(raise);
+        const color = `rgb(255,${Math.round(norm * 255)},0)`;
+
+        [det.landmarks.positions.slice(17,22), det.landmarks.positions.slice(22,27)].forEach(brow => {
+          ctx.beginPath();
+          brow.forEach((pt, i) =>
+            i === 0 ? ctx.moveTo(pt.x*sx, pt.y*sy) : ctx.lineTo(pt.x*sx, pt.y*sy)
+          );
+          ctx.strokeStyle = color;
+          ctx.lineWidth   = 3 + norm * 4;
+          ctx.lineCap = ctx.lineJoin = 'round';
+          ctx.stroke();
+          brow.forEach(pt => {
+            ctx.beginPath();
+            ctx.arc(pt.x*sx, pt.y*sy, 3, 0, Math.PI*2);
+            ctx.fillStyle = color;
+            ctx.fill();
+          });
+        });
+      });
+    }
+
+    // ── Detection loop ─────────────────────────────────────────────
+    async function detect() {
+      if (!detecting) return;
+
+      const detections = await faceapi
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks(true)
+        .withFaceExpressions();
+
+      if (!detecting) return;
+
+      const sx = ovalClip.offsetWidth  / video.videoWidth;
+      const sy = ovalClip.offsetHeight / video.videoHeight;
+
+      drawBrows(detections, sx, sy);
+      faceLayer.innerHTML = '';
+
+      detections.forEach(det => {
+        const { x, y, width, height } = det.detection.box;
+        const emoji     = pickEmoji(det.expressions);
+        const emojiSize = width * sx * 2.64;
+
+        const fEl = document.createElement('div');
+        fEl.className      = 'face-emoji';
+        fEl.textContent    = emoji;
+        fEl.style.fontSize = emojiSize + 'px';
+        fEl.style.width    = emojiSize + 'px';
+        fEl.style.height   = emojiSize + 'px';
+        fEl.style.left     = (x * sx - (emojiSize - width  * sx) / 2) + 'px';
+        fEl.style.top      = (y * sy - (emojiSize - height * sy) / 2) + 'px';
+        faceLayer.appendChild(fEl);
+
+        const [topExpr, topScore] = Object.entries(det.expressions).sort((a,b) => b[1]-a[1])[0];
+        const browRaise = det.landmarks ? normBrow(getBrowRaise(det.landmarks, height)) : null;
+
+        const lbEl = document.createElement('div');
+        lbEl.className   = 'face-label';
+        lbEl.style.left  = (x * sx) + 'px';
+        lbEl.style.top   = Math.max(0, y * sy - 20) + 'px';
+        lbEl.textContent = `${topExpr} ${Math.round(topScore*100)}%`
+          + (browRaise !== null ? ` · brow ${Math.round(browRaise*100)}%` : '');
+        faceLayer.appendChild(lbEl);
+      });
+
+      setTimeout(detect, 150);
+    }
+
+    // ── Start ──────────────────────────────────────────────────────
+    async function run() {
+      startBtn.textContent = '…';
+      startBtn.disabled = true;
+
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+      } catch(e) {
+        startBtn.textContent = 'Error';
+        startBtn.disabled = false;
+        console.error('Model load failed:', e);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.srcObject = stream;
+        await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
+      } catch(e) {
+        startBtn.textContent = 'No camera';
+        startBtn.disabled = false;
+        return;
+      }
+
+      startBtn.style.display = 'none';
+      detecting = true;
+      detect();
+    }
+
+    startBtn.addEventListener('click', run);
+  </script>
+</body>
+</html>
